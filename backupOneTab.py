@@ -3,94 +3,57 @@ import os
 import shutil
 from datetime import datetime
 
-chromedata_path = 'C:/Users/<Username>/AppData/Local/Google/Chrome/User Data/Default/Local Storage/leveldb' # this is your Chrome data path (make sure to replace <Username> with your user's username)
-local_path = './backups/' # this is your backups folder path (you can change to anywhere but make sure to include the last backslash /)
-exclude_file = 'LOCK' 
+# List of paths to backup
+chromedata_paths = [
+    'C:/Users/<username>/AppData/Roaming/Mozilla/Firefox/Profiles/<profilename>/storage/default/moz-extension+++<extension-number>^userContextId=<contextId>', #<contextId> is located in the filepath. Only two files in that filepath will contain your extension number
+    'C:/Users/<username>/AppData/Roaming/Mozilla/Firefox/Profiles/7dwg01ao.default-release/storage/default/moz-extension+++<extension-number>' #insert <username> and <extension-number> from filepath. Can find extension number by right-clicking onetab icon > `OneTab` > `Display OneTab`
+]
+
+local_path = './Backups/'  # this is your backups folder path
 
 def backup():
-  # get current time
-  now = datetime.now() # current date and time
-  date_time = now.strftime('%m-%d-%Y_%H-%M-%S')
-  print('date and time:', date_time)
+    now = datetime.now()  # current date and time
+    date_time = now.strftime('%m-%d-%Y_%H-%M-%S')
+    
+    # Create a backup folder with the current datetime
+    backup_path = os.path.join(local_path, date_time)
+    os.makedirs(backup_path, exist_ok=True)
+    print(f'Backup folder created at {backup_path}')
 
-  # define src directory
-  src = chromedata_path
+    # Iterate over the folders to back up
+    for path in chromedata_paths:
+        # Determine the name of the folder to create in the backup directory
+        folder_name = os.path.basename(path)
+        dest = os.path.join(backup_path, folder_name)
+        os.makedirs(dest, exist_ok=True)
+        print(f'Created directory {dest}')
 
-  # make dest_parent and dest directories
-  dest_parent = local_path + date_time
-  os.mkdir(dest_parent)
-  print(dest_parent + ' created')
-  dest = dest_parent + '/leveldb'
-  os.mkdir(dest)
-  print(dest + ' created')
+        # Copy the contents of the source directory to the backup directory
+        for item in os.listdir(path):
+            s = os.path.join(path, item)
+            d = os.path.join(dest, item)
+            if os.path.isdir(s):
+                shutil.copytree(s, d, dirs_exist_ok=True)
+                print(f'Copied directory {s} to {d}')
+            else:
+                shutil.copy2(s, d)
+                print(f'Copied file {s} to {d}')
 
-  # copy ldb and log files from chromedata directory to local directory
-  print('copying from ' + src + ' to ' + dest)
-  src_files = os.listdir(src)
-  for file_name in src_files:
-    if(file_name == exclude_file):
-      continue
-    full_file_name = os.path.join(src, file_name)
-    if os.path.isfile(full_file_name):
-      shutil.copy(full_file_name, dest)
-      print('copied ' + file_name)
-  
-  print('backup complete\n')
-
-def restore(index): # index is the index of the backup with 0 being the latest and 1 being the second latest
-  # define dest directory
-  dest = chromedata_path
-
-  # define src directory
-  backups = next(os.walk(local_path))[1]
-  backups.reverse()
-  src = local_path + backups[index] + '/leveldb'
-
-  # getting file numbers from src
-  src_files = os.listdir(src)
-  src_files_compare = [file_name for file_name in src_files]
-
-  # remove files not in src from dest
-  print('removing files not in ' + src + ' from ' + dest)
-  dest_files = os.listdir(dest)
-  for file_name in dest_files:
-    if(file_name == exclude_file):
-      continue
-    full_file_name = os.path.join(dest, file_name)
-    if os.path.isfile(full_file_name) and file_name not in src_files_compare:
-      os.remove(full_file_name)
-      print('deleted ' + file_name)
-
-  # copy ldb and log files from local directory to chromedata directory
-  print('copying from ' + src + ' to ' + dest)
-  for file_name in src_files:
-    full_file_name = os.path.join(src, file_name)
-    if os.path.isfile(full_file_name):
-      shutil.copy(full_file_name, dest)
-      print('copied ' + file_name)
-  
-  print('restore complete\n')
+    print('Backup complete')
 
 def main():
-  args = sys.argv[1:]
+    args = sys.argv[1:]
 
-  print()
-  if len(args) == 0: # no args are input
-    fn = input('Backup or restore? ').lower()
-    print()
-    if fn == 'backup':
-      backup()
-    elif fn == 'restore':
-      index = int(input('Enter the backup ID: '))
-      restore(index)
+    if len(args) == 0:
+        fn = input('Backup or restore? ').lower()
+        if fn == 'backup':
+            backup()
+        else:
+            print('Restore function not implemented for directories.')
+    elif args[0] == '--backup':
+        backup()
     else:
-      print('Error: Function not found')
-    print(input('Press \'Enter\' to exit'))
-  elif len(args) > 0 and args[0] == '--backup': # '--backup' arg is input
-    backup()
-  elif len(args) > 0 and args[0] == '--restore': # '--restore <int>' args are input
-    index = int(args[1])
-    restore(index)
+        print('Invalid command. Usage: --backup')
 
 if __name__ == '__main__':
-  main()
+    main()
